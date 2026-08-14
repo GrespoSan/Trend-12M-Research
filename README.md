@@ -52,3 +52,19 @@ Il giudizio sull'edge va fatto prima di tutto sul CORE.
 La qualità dello storico Yahoo non è uniforme tra tutti i futures; il report
 mostra la coverage settimanale e i risultati vanno letti anche per periodi con
 copertura comparabile.
+
+
+## V1.0.1 — Excel export fix
+
+Corretto il `TypeError` durante l'esportazione Excel su versioni recenti di pandas.
+
+Tutte le chiamate:
+
+`to_excel(writer, "NomeFoglio", index=False)`
+
+sono state sostituite con:
+
+`to_excel(writer, sheet_name="NomeFoglio", index=False)`
+
+La logica della strategia, i segnali, il volatility scaling e i risultati
+statistici non sono stati modificati.

@@ -436,16 +436,16 @@ def excel_report(settings: dict, core: pd.DataFrame, targeted: pd.DataFrame, yea
                  horizons: pd.DataFrame, streams: pd.DataFrame, costs: pd.DataFrame) -> bytes:
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        pd.DataFrame([{"Setting": k, "Value": v} for k, v in settings.items()]).to_excel(writer, "Settings", index=False)
-        core.to_excel(writer, "Core_Weekly", index=False)
-        targeted.to_excel(writer, "Portfolio_10pct", index=False)
-        yearly_core.to_excel(writer, "Yearly_Core", index=False)
-        yearly_target.to_excel(writer, "Yearly_10pct", index=False)
-        decades_core.to_excel(writer, "Decades_Core", index=False)
-        per_asset.to_excel(writer, "Per_Asset", index=False)
-        horizons.to_excel(writer, "Horizons", index=False)
-        streams.to_excel(writer, "Asset_Week", index=False)
-        costs.to_excel(writer, "Cost_Stress", index=False)
+        pd.DataFrame([{"Setting": k, "Value": v} for k, v in settings.items()]).to_excel(writer, sheet_name="Settings", index=False)
+        core.to_excel(writer, sheet_name="Core_Weekly", index=False)
+        targeted.to_excel(writer, sheet_name="Portfolio_10pct", index=False)
+        yearly_core.to_excel(writer, sheet_name="Yearly_Core", index=False)
+        yearly_target.to_excel(writer, sheet_name="Yearly_10pct", index=False)
+        decades_core.to_excel(writer, sheet_name="Decades_Core", index=False)
+        per_asset.to_excel(writer, sheet_name="Per_Asset", index=False)
+        horizons.to_excel(writer, sheet_name="Horizons", index=False)
+        streams.to_excel(writer, sheet_name="Asset_Week", index=False)
+        costs.to_excel(writer, sheet_name="Cost_Stress", index=False)
         wb = writer.book
         header_fmt = wb.add_format({"bold": True, "bg_color": "#D9EAF7", "border": 1})
         for sheet_name, df in {
@@ -466,7 +466,7 @@ def excel_report(settings: dict, core: pd.DataFrame, targeted: pd.DataFrame, yea
 # UI
 # ============================================================
 
-st.title("Multi-Horizon Trend Weekly Research V1.0")
+st.title("Multi-Horizon Trend Weekly Research V1.0.1")
 st.caption(
     "Time-Series Momentum multi-asset: segnali 1M + 3M + 12M, rebalance settimanale, "
     "volatility scaling. Nessuna ottimizzazione dei lookback."
@@ -652,7 +652,7 @@ if errors:
         st.code("\n".join(errors))
 
 settings = {
-    "Project": "Multi-Horizon Trend Weekly Research V1.0",
+    "Project": "Multi-Horizon Trend Weekly Research V1.0.1",
     "Start": start_date,
     "End": end_date,
     "Universe": universe_source,
