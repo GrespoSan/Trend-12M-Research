@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
-st.set_page_config(page_title="Trend 12M Research V1.0", layout="wide")
+st.set_page_config(page_title="Trend 12M Research V1.1", layout="wide")
 LOOKBACK_SESSIONS = 252
 
 DEFAULT_UNIVERSE = {
@@ -70,7 +70,25 @@ def normalize_yf_frame(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=12 * 60 * 60, show_spinner=False)
-def download_history(ticker: str, start_date: date, end_date: date) -> pd.DataFrame:
+def download_history(
+    ticker: str,
+    start_date: date,
+    end_date: date,
+) -> tuple[pd.DataFrame, str]:
+    """
+    Loader robusto V1.1.
+
+    Primo tentativo:
+    - yf.download con la stessa struttura già usata nell'app stagionale.
+
+    Fallback:
+    - yf.Ticker(...).history(period="max") e taglio locale del periodo.
+
+    Restituisce anche un messaggio diagnostico: non nasconde più le eccezioni.
+    """
+    errors = []
+
+    # --- Tentativo 1: yf.download standard ---
     try:
         raw = yf.download(
             ticker,
@@ -81,12 +99,52 @@ def download_history(ticker: str, start_date: date, end_date: date) -> pd.DataFr
             actions=False,
             progress=False,
             threads=False,
-            repair=True,
-            timeout=30,
         )
-    except Exception:
-        return pd.DataFrame()
-    return normalize_yf_frame(raw, ticker)
+
+        df = normalize_yf_frame(raw, ticker)
+
+        if not df.empty:
+            return df, "OK · yf.download"
+
+        errors.append("yf.download ha restituito un DataFrame vuoto")
+
+    except Exception as exc:
+        errors.append(
+            f"yf.download: {type(exc).__name__}: {str(exc)[:220]}"
+        )
+
+    # --- Tentativo 2: Ticker.history MAX + filtro locale ---
+    try:
+        hist = yf.Ticker(ticker).history(
+            period="max",
+            interval="1d",
+            auto_adjust=False,
+            actions=False,
+            repair=False,
+            raise_errors=True,
+        )
+
+        df = normalize_yf_frame(hist, ticker)
+
+        if not df.empty:
+            start_ts = pd.Timestamp(start_date)
+            end_ts = pd.Timestamp(end_date)
+            df = df.loc[
+                (df.index >= start_ts)
+                & (df.index <= end_ts)
+            ].copy()
+
+        if not df.empty:
+            return df, "OK · Ticker.history fallback"
+
+        errors.append("Ticker.history ha restituito dati vuoti")
+
+    except Exception as exc:
+        errors.append(
+            f"Ticker.history: {type(exc).__name__}: {str(exc)[:220]}"
+        )
+
+    return pd.DataFrame(), " | ".join(errors)
 
 
 def build_monthly_trades(name, ticker, df, start_date, end_date, monthly_cost_bps):
@@ -289,7 +347,7 @@ def fmt_num(v):
     return f"{v:.2f}"
 
 
-st.title("Trend 12M Research V1.0")
+st.title("Trend 12M Research V1.1")
 st.caption("Time-Series Momentum minimale: una decisione al mese, lookback fisso 252 sedute, LONG/SHORT, nessun target e nessuno stop.")
 
 with st.sidebar:
@@ -331,9 +389,11 @@ all_trades, errors = [], []
 progress, status = st.progress(0), st.empty()
 for i, (name, ticker) in enumerate(universe.items(), start=1):
     status.write(f"Scarico e analizzo {name} ({ticker})…")
-    df = download_history(ticker, download_start, end_date)
+    df, download_info = download_history(ticker, download_start, end_date)
     if df.empty:
-        errors.append(f"{name} ({ticker}): dati non disponibili")
+        errors.append(
+            f"{name} ({ticker}): dati non disponibili · {download_info}"
+        )
     else:
         t = build_monthly_trades(name, ticker, df, start_date, end_date, monthly_cost_bps)
         if t.empty:
@@ -344,9 +404,12 @@ for i, (name, ticker) in enumerate(universe.items(), start=1):
 status.empty(); progress.empty()
 
 if not all_trades:
-    st.error("Nessun trade calcolabile con i dati disponibili.")
+    st.error(
+        "Nessun trade calcolabile. Ora sotto trovi l'errore reale restituito "
+        "dal provider dati, invece del generico 'dati non disponibili'."
+    )
     if errors:
-        st.warning("\n".join(errors))
+        st.code("\n".join(errors))
     st.stop()
 
 trades = pd.concat(all_trades, ignore_index=True)
@@ -412,11 +475,11 @@ for c in ["Momentum 12M %","Underlying Return","Gross Return","Cost","Net Return
 st.dataframe(last_trades, width="stretch", hide_index=True)
 
 if errors:
-    with st.expander("Asset con errori/dati insufficienti"):
-        st.write("\n".join(errors))
+    with st.expander("Diagnostica download / asset con problemi"):
+        st.code("\n".join(errors))
 
 settings = {
-    "Progetto": "Trend 12M Research V1.0", "Data inizio": start_date, "Data fine": end_date,
+    "Progetto": "Trend 12M Research V1.1", "Data inizio": start_date, "Data fine": end_date,
     "Lookback": "252 sedute", "Decisione": "Prima apertura del mese", "Segnale LONG": "Close T-1 > Close T-253",
     "Segnale SHORT": "Close T-1 < Close T-253", "Exit": "Prima apertura del mese successivo", "Target": "Nessuno",
     "Stop": "Nessuno", "Volatility targeting": "OFF", "Portfolio": "Equal-weight mensile", "Costo bps/mese/asset": float(monthly_cost_bps),

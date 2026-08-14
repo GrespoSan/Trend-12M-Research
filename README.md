@@ -37,3 +37,19 @@ streamlit run app.py
 Periodo più lungo possibile (es. dal 2000), costo iniziale 0 bps, universo predefinito. Prima guardare soprattutto robustezza per decennio e per asset; solo dopo il Cost Stress.
 
 Un risultato forte soltanto nell'ultimo decennio non basta.
+
+
+## V1.1 — Download fix
+
+Corretto il loader dati.
+
+La V1.0 nascondeva ogni eccezione di yfinance e trasformava qualsiasi problema
+di download nel generico messaggio "dati non disponibili".
+
+La V1.1 usa:
+1. `yf.download` standard, con la stessa impostazione già usata nel progetto
+   stagionalità;
+2. fallback `Ticker.history(period="max")`;
+3. diagnostica reale dell'errore se entrambi i metodi falliscono.
+
+La logica Trend 12M NON è stata modificata.

@@ -1,5 +1,5 @@
 streamlit>=1.45
-yfinance>=0.2.65
+yfinance>=0.2.66
 pandas>=2.2
 numpy>=2.0
 xlsxwriter>=3.2
