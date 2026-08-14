@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
-st.set_page_config(page_title="Trend 12M Research V1.1", layout="wide")
+st.set_page_config(page_title="Trend 12M Research V1.2", layout="wide")
 LOOKBACK_SESSIONS = 252
 
 DEFAULT_UNIVERSE = {
@@ -231,17 +231,24 @@ def metrics_from_returns(returns):
 
 
 def build_portfolio(trades):
+    """
+    Portfolio equal-weight per vero mese di calendario.
+    I mercati possono avere una prima seduta diversa nello stesso mese:
+    si aggrega quindi per YYYY-MM e non per Entry Date esatta.
+    """
     if trades is None or trades.empty:
         return pd.DataFrame()
     x = trades.copy()
     x["Entry Date"] = pd.to_datetime(x["Entry Date"])
-    p = x.groupby("Entry Date").agg(
+    x["Month"] = x["Entry Date"].dt.to_period("M").dt.to_timestamp()
+    p = x.groupby("Month").agg(
         Portfolio_Return=("Net Return", "mean"),
         Gross_Return=("Gross Return", "mean"),
         Asset_Count=("Asset", "nunique"),
         Long_Count=("Direction", lambda s: int((s == "LONG").sum())),
         Short_Count=("Direction", lambda s: int((s == "SHORT").sum())),
-    ).reset_index().sort_values("Entry Date")
+    ).reset_index().sort_values("Month")
+    p = p.rename(columns={"Month": "Entry Date"})
     p["Equity"] = (1.0 + p["Portfolio_Return"]).cumprod()
     p["Peak"] = p["Equity"].cummax()
     p["Drawdown"] = p["Equity"] / p["Peak"] - 1.0
@@ -347,7 +354,7 @@ def fmt_num(v):
     return f"{v:.2f}"
 
 
-st.title("Trend 12M Research V1.1")
+st.title("Trend 12M Research V1.2")
 st.caption("Time-Series Momentum minimale: una decisione al mese, lookback fisso 252 sedute, LONG/SHORT, nessun target e nessuno stop.")
 
 with st.sidebar:
@@ -416,6 +423,8 @@ trades = pd.concat(all_trades, ignore_index=True)
 trades["Entry Date"] = pd.to_datetime(trades["Entry Date"])
 trades["Exit Date"] = pd.to_datetime(trades["Exit Date"])
 portfolio = build_portfolio(trades)
+if not portfolio.empty:
+    portfolio["Coverage %"] = portfolio["Asset_Count"] / max(len(universe), 1)
 yearly = build_yearly(portfolio)
 per_asset = build_per_asset(trades)
 subperiods = build_subperiods(portfolio)
@@ -424,10 +433,21 @@ m = metrics_from_returns(portfolio["Portfolio_Return"])
 positive_years = float((yearly["Rendimento"] > 0).mean()) if not yearly.empty else np.nan
 ci_lo, ci_hi = bootstrap_mean_ci(portfolio["Portfolio_Return"])
 summary_dict = {
-    "Mesi portfolio": m["Mesi"], "Asset con dati": int(trades["Asset"].nunique()), "Profit Factor": m["Profit Factor"],
-    "Media mensile": m["Media mensile"], "Mediana mensile": m["Mediana mensile"], "Mesi positivi %": m["Mesi positivi %"],
-    "CAGR": m["CAGR"], "Vol ann.": m["Vol ann."], "Max DD": m["Max DD"], "Anni positivi %": positive_years,
-    "Totale composto": m["Totale"], "Bootstrap media 95% low": ci_lo, "Bootstrap media 95% high": ci_hi,
+    "Mesi portfolio": m["Mesi"],
+    "Asset con dati": int(trades["Asset"].nunique()),
+    "Copertura media asset %": float(portfolio["Coverage %"].mean()) if not portfolio.empty else np.nan,
+    "Copertura minima asset %": float(portfolio["Coverage %"].min()) if not portfolio.empty else np.nan,
+    "Profit Factor": m["Profit Factor"],
+    "Media mensile": m["Media mensile"],
+    "Mediana mensile": m["Mediana mensile"],
+    "Mesi positivi %": m["Mesi positivi %"],
+    "CAGR": m["CAGR"],
+    "Vol ann.": m["Vol ann."],
+    "Max DD": m["Max DD"],
+    "Anni positivi %": positive_years,
+    "Totale composto": m["Totale"],
+    "Bootstrap media 95% low": ci_lo,
+    "Bootstrap media 95% high": ci_hi,
 }
 summary = pd.DataFrame([{"Metrica": k, "Valore": v} for k, v in summary_dict.items()])
 
@@ -437,7 +457,17 @@ c1.metric("Mesi", m["Mesi"]); c2.metric("Asset", int(trades["Asset"].nunique()))
 c4.metric("Media mensile", fmt_pct(m["Media mensile"])); c5.metric("CAGR", fmt_pct(m["CAGR"])); c6.metric("Max DD", fmt_pct(m["Max DD"]))
 c7,c8,c9 = st.columns(3)
 c7.metric("Mesi positivi", fmt_pct(m["Mesi positivi %"])); c8.metric("Anni positivi", fmt_pct(positive_years)); c9.metric("Bootstrap 95% media mese", f"{fmt_pct(ci_lo)} → {fmt_pct(ci_hi)}")
-st.caption("Portfolio = media semplice dei rendimenti mensili degli asset disponibili. Nessuna leva e nessun volatility targeting in V1.")
+st.caption(
+    "Portfolio = media semplice dei rendimenti mensili degli asset disponibili. "
+    "V1.2 aggrega tutti i mercati per vero mese di calendario (YYYY-MM). "
+    "Nessuna leva e nessun volatility targeting."
+)
+if not portfolio.empty and "Coverage %" in portfolio.columns:
+    st.caption(
+        f"Copertura media universo: {portfolio['Coverage %'].mean():.1%} · "
+        f"copertura minima: {portfolio['Coverage %'].min():.1%}. "
+        "Nei primi anni alcuni ticker Yahoo possono avere storico più corto."
+    )
 
 st.subheader("Equity"); st.line_chart(portfolio.set_index("Entry Date")[["Equity"]], height=320)
 st.subheader("Drawdown"); st.line_chart(portfolio.set_index("Entry Date")[["Drawdown"]], height=250)
@@ -479,10 +509,10 @@ if errors:
         st.code("\n".join(errors))
 
 settings = {
-    "Progetto": "Trend 12M Research V1.1", "Data inizio": start_date, "Data fine": end_date,
+    "Progetto": "Trend 12M Research V1.2", "Data inizio": start_date, "Data fine": end_date,
     "Lookback": "252 sedute", "Decisione": "Prima apertura del mese", "Segnale LONG": "Close T-1 > Close T-253",
     "Segnale SHORT": "Close T-1 < Close T-253", "Exit": "Prima apertura del mese successivo", "Target": "Nessuno",
-    "Stop": "Nessuno", "Volatility targeting": "OFF", "Portfolio": "Equal-weight mensile", "Costo bps/mese/asset": float(monthly_cost_bps),
+    "Stop": "Nessuno", "Volatility targeting": "OFF", "Portfolio": "Equal-weight per mese di calendario", "Costo bps/mese/asset": float(monthly_cost_bps),
     "Universo": universe_source, "Numero asset richiesti": len(universe), "Numero asset con dati": int(trades["Asset"].nunique()),
 }
 excel_bytes = excel_report(settings, summary, portfolio, yearly, subperiods, per_asset, trades, costs)

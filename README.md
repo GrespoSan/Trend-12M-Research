@@ -53,3 +53,20 @@ La V1.1 usa:
 3. diagnostica reale dell'errore se entrambi i metodi falliscono.
 
 La logica Trend 12M NON è stata modificata.
+
+
+## V1.2 — Fix portfolio mensile
+
+Corretto un errore importante della V1.0/V1.1.
+
+Prima il portfolio veniva aggregato sulla data esatta della prima seduta del
+mese. Mercati con calendari/festività differenti potevano quindi creare due
+osservazioni separate nello stesso mese.
+
+Ora:
+- aggregazione per YYYY-MM;
+- una sola osservazione per mese di calendario;
+- CAGR, equity, drawdown, statistiche annuali/decennali e Cost Stress corretti;
+- aggiunta copertura percentuale dell'universo disponibile.
+
+La regola Trend 12M è invariata.
