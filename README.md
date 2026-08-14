@@ -1,0 +1,39 @@
+# Trend 12M Research V1.0
+
+Progetto Streamlit indipendente per testare una versione minimale di Time-Series Momentum.
+
+## Regola congelata
+- una decisione al mese
+- LONG se Close(T-1) > Close(T-253)
+- SHORT se Close(T-1) < Close(T-253)
+- entry alla prima apertura reale del mese
+- exit/continuazione alla prima apertura del mese successivo
+- nessun target, stop, EMA, RSI, stagionalità o altro filtro
+- nessuna ottimizzazione del lookback
+
+## Perché T-253
+All'open di T l'ultimo Close noto è T-1. Il confronto con T-253 dà 252 sedute di distanza e non usa dati futuri.
+
+## Portfolio
+Equal-weight mensile fra tutti gli asset con dati disponibili. In V1 non c'è volatility targeting né leva: vogliamo prima verificare il puro edge direzionale.
+
+## Output
+- PF, media mensile, CAGR, Max DD
+- mesi e anni positivi
+- bootstrap 95% della media mensile
+- equity e drawdown
+- risultati per decennio, anno e asset
+- contributi LONG/SHORT per asset
+- Cost Stress 0/2/5/10/20 bps per mese e asset
+- export Excel
+
+## Avvio
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+## Primo test consigliato
+Periodo più lungo possibile (es. dal 2000), costo iniziale 0 bps, universo predefinito. Prima guardare soprattutto robustezza per decennio e per asset; solo dopo il Cost Stress.
+
+Un risultato forte soltanto nell'ultimo decennio non basta.

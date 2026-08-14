@@ -1,0 +1,16 @@
+# Nome,Ticker
+S&P 500 Future,ES=F
+Nasdaq 100 Future,NQ=F
+Dow Future,YM=F
+Russell 2000 Future,RTY=F
+DAX (proxy cash),^GDAXI
+Euro Stoxx 50 (proxy cash),^STOXX50E
+Gold Future,GC=F
+Silver Future,SI=F
+WTI Future,CL=F
+Natural Gas Future,NG=F
+Copper Future,HG=F
+US 30Y Treasury Future,ZB=F
+US 10Y Treasury Future,ZN=F
+EUR/USD,EURUSD=X
+GBP/USD,GBPUSD=X
